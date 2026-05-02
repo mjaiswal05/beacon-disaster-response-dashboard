@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: europe-west2
+  IMAGE_NAME: beacon-dashboard
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "git_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCP
+        run: make gcp-auth
+
+      - name: Build and Push Docker image
+        env:
+          GIT_SHA: ${{ steps.version.outputs.git_sha }}
+        run: make gke-build-push
+
+      - name: Create Release Summary
+        run: |
+          echo "## 🚀 Release Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ steps.version.outputs.git_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/frontend-images/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.git_sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Docker image built and pushed to GCP Artifact Registry" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deploy Now" >> $GITHUB_STEP_SUMMARY
+          echo "Go to [Actions → CD](../../actions/workflows/cd.yml) and run workflow with:" >> $GITHUB_STEP_SUMMARY
+          echo "- **git_ref:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY

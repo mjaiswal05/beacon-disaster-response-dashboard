@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Dark background circle -->
+  <circle cx="32" cy="32" r="32" fill="#0f172a"/>
+  <!-- Outer signal arc -->
+  <path d="M14 32 A18 18 0 0 1 50 32" stroke="#3b82f6" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.4"/>
+  <!-- Middle signal arc -->
+  <path d="M19 32 A13 13 0 0 1 45 32" stroke="#3b82f6" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.65"/>
+  <!-- Inner signal arc -->
+  <path d="M24 32 A8 8 0 0 1 40 32" stroke="#3b82f6" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- Beacon dot -->
+  <circle cx="32" cy="32" r="4" fill="#3b82f6"/>
+  <!-- Vertical mast -->
+  <line x1="32" y1="36" x2="32" y2="50" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  <!-- Base -->
+  <line x1="24" y1="50" x2="40" y2="50" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+</svg>

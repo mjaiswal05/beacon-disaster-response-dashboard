@@ -1,0 +1,94 @@
+run-name: Deploying ${{ inputs.git_ref }} 🚀
+
+name: CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "Git tag or branch to deploy (e.g., v1.0.0 or main)"
+        required: true
+        type: string
+      environment:
+        description: "Deployment environment"
+        required: true
+        type: choice
+        default: staging
+        options:
+          - staging
+          - production
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: europe-west2
+  GKE_CLUSTER_NAME: ${{ secrets.GKE_CLUSTER_NAME }}
+  GKE_ZONE: europe-west2-a
+  IMAGE_NAME: beacon-dashboard
+  DEPLOYMENT_NAME: beacon-dashboard
+  NAMESPACE: ${{ github.event.inputs.environment }}
+
+jobs:
+  deploy:
+    name: Deploy to GKE
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Set deployment variables
+        id: vars
+        run: |
+          echo "git_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install gke-gcloud-auth-plugin
+        run: gcloud components install gke-gcloud-auth-plugin
+
+      - name: Display deployment info
+        run: |
+          echo "## 🚀 Deployment Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Git Ref:** ${{ inputs.git_ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit SHA:** ${{ steps.vars.outputs.git_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Cluster:** ${{ env.GKE_CLUSTER_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Namespace:** ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.GCP_REGION }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Configure Docker for GCP
+        run: make gcp-auth
+
+      - name: Deploy to GKE
+        env:
+          GIT_SHA: ${{ steps.vars.outputs.git_sha }}
+        run: make gke-deploy
+
+      - name: Get Service Status
+        run: |
+          make gke-status
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Application deployed successfully!" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deployment failed
+        if: failure()
+        run: |
+          echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the logs above for details" >> $GITHUB_STEP_SUMMARY
+          exit 1
